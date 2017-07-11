@@ -1,0 +1,219 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<meta charset="utf-8"/>
+		<style type="text/css">
+			html,body{
+				padding:0;
+				margin:0;
+				height:100%;
+				width:100%;
+			}
+			#box{
+				padding:10px;
+				height:100%;
+				width:100%;
+				box-sizing: border-box;
+				overflow:hidden;
+				position: relative;
+			}
+			#resTbl{
+				overflow-x:hidden;
+				overflow-y:auto;
+				position: absolute;
+				top:50px;
+				bottom:10px;
+				left:10;
+				right:10;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="box">
+			<input type="file" name="csvfile" />
+			<input type="button" onclick="csv()" value="csv转换table"/>&nbsp;&nbsp;&nbsp;
+			<span>成功转换条数:</span><span id="okNum">0</span>&nbsp;&nbsp;&nbsp; <span >失败转换条数:</span><span id="offNum">0</span>
+			&nbsp;&nbsp;&nbsp;<span>转换总条数:</span><span id="allNum">0</span>&nbsp;&nbsp;&nbsp;
+			<input type="button"  value="csv导出" id="export"/>&nbsp;&nbsp;&nbsp;<span>第一批数据处理</span>
+			
+			<br /><br /><br />
+			<div id="resTbl">
+				<table border='1' id="export_table" border='1'>
+					
+				</table>
+			</div>
+		</div>
+
+	<script src="./lib/jquery.js"></script>
+	<script src="./lib/jquery.tabletoCSV.js" type="text/javascript" charset="utf-8"></script>
+	<script src="./lib/papaparse.js"></script>
+	<script src="./lib/jschardet.js"></script>
+	<!--[if lte IE 9]>
+		<script src="./lib/base64.js"></script>
+	<![endif]-->
+	<script src="csv2arr.js"></script>
+	<script>
+			var p = 0;
+			var l = 0;
+			var allNum = 0;
+			var textNum = 0;
+			$(function(){
+			    $("#export").click(function(){
+			        $("#export_table").tableToCSV();
+			    });
+			});
+			function csv(){
+				p=0;
+				l = 0;
+				allNum=0;
+				textNum=0;
+				$("input[name=csvfile]").csv2arr(function(arr){
+					var tblStr = "";
+					var classHeader = [];
+					$.each( arr, function(i, line){
+						tblStr += "<tr>";
+						if(i==0){
+							$.each( line, function(j, cell){	
+								classHeader.push(cell);
+								tblStr += "<td>"+cell+"</td>";
+							});
+						}else{
+							$.each( line, function(n, cell){
+								var tdClass=classHeader[n]+(i-1);
+								tblStr += "<td class="+tdClass+">"+cell+"</td>";
+							});
+						}
+						tblStr += "</tr>";
+					});
+					$("#export_table").html( tblStr );
+					for(var m=1;m<arr.length;m++){
+						var type = $(".location_Type"+(m-1)).text();
+						if(type==1){
+							var coordinate = arr[m][2];
+							otherTobd(type,coordinate,m);
+						}else if(type==3){
+							var coordinate = arr[m][2];
+							otherTobd(type,coordinate,m);
+						}else{
+							var coordinate = arr[m][2];
+							bdTogd(coordinate,m);
+						}
+					}
+					allNum = arr.length-1;
+					$("#allNum").text(allNum);
+					
+					
+				});
+			};
+			function otherTobd(type,coordinate,m){
+				var coordinate = coordinate.split(",")
+				var x2 = (Number(coordinate[0])).toFixed(6);
+				var y2 = (Number(coordinate[1])).toFixed(6);
+				if(type==1){
+					var url = "http://api.map.baidu.com/geoconv/v1/?coords="+x2+","+y2+"&from=1&to=5&ak=aioYlTVrOh65zjaMkqsi3eGmwGNxT7dY";
+					$.ajax({
+						type: "get",
+						url:url,
+						data: {},
+						dataType:'jsonp',
+						success:function(result){
+							otherTobdShowText(result,m);
+						},
+						error:function(data){
+							l=l+1;
+							$("#offNum").text(l);
+							textNum=textNum+1;
+						}
+				  	});
+				}else if(type==3){
+					var url = "http://api.map.baidu.com/geoconv/v1/?coords="+x2+","+y2+"&from=3&to=5&ak=aioYlTVrOh65zjaMkqsi3eGmwGNxT7dY";
+					$.ajax({
+						type: "get",
+						url:url,
+						data: {},
+						dataType:'jsonp',
+						success:function(result){
+							otherTobdShowText(result,m);
+						},
+						error:function(data){
+							l=l+1;
+							$("#offNum").text(l);
+							textNum=textNum+1;
+						}
+				  	});
+				}
+			};
+			function otherTobdShowText(result,m){
+				console.log(result);
+				var _x = result.result[0]["x"];
+				var _y = result.result[0]["y"];
+				var _coordinate = _x+","+_y;
+				$(".location"+(m-1)).text(_coordinate);
+				bdTogd(_coordinate,m);
+			};
+			function bdTogd(coordinate,m){
+					var coordinate = coordinate.split(",")
+					var x = (Number(coordinate[0])).toFixed(6);
+					var y = (Number(coordinate[1])).toFixed(6);
+					var url = "http://restapi.amap.com/v3/assistant/coordinate/convert?locations="+x+","+y+"&coordsys=baidu&output=json&key=4545233705058d936b933642e6530f6f";
+					 $.ajax({
+						type: "get",
+						url:url,
+						data: {},
+						dataType:'json',
+						success:function(result){
+							gdToMessage(result,m);
+						},
+						error:function(data){
+							l=l+1;
+							$("#offNum").text(l);
+							textNum=textNum+1;
+						}
+				  	});
+			}
+			function gdToMessage(result,m){
+				var locations = result.locations.split(",");
+			//	console.log(result);
+				var x1 = (Number(locations[0])).toFixed(6);
+				var y1 = (Number(locations[1])).toFixed(6);
+				var url = "http://restapi.amap.com/v3/geocode/regeo?output=json&location="+x1+","+y1+"&key=4545233705058d936b933642e6530f6f&radius=1000&extensions=all";
+				 $.ajax({
+					type: "get",
+					url:url,
+					data: {},
+					dataType:'json',
+					success: function(result){
+						p=p+1;
+						$("#okNum").text(p);
+						toTable(result,m);
+					},
+					error:function(data){
+						l=l+1;
+						$("#offNum").text(l);
+						textNum=textNum+1;
+						if(textNum==allNum){
+							alert("转换完毕！")
+						}
+					}
+			  	});
+			}
+			function toTable(result,m){
+				
+				textNum=textNum+1;
+				console.log(result);
+				var regeocode = result.regeocode;
+				var num = m-1;
+				var addressComponent = regeocode.addressComponent;
+				$(".pname"+num).text(addressComponent.province);
+				$(".cname"+num).text(addressComponent.city);
+				$(".dname"+num).text(addressComponent.district);
+				$(".vname"+num).text(addressComponent.township);
+				$(".adrress-gd"+num).text(regeocode.formatted_address);
+				console.log(textNum);
+				if(textNum==allNum){
+					alert("转换完毕！")
+				}
+			}
+		</script>
+	</body>
+</html>
